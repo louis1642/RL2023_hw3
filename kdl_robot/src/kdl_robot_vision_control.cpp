@@ -219,12 +219,12 @@ int main(int argc, char **argv)
               Eigen::Matrix<double, 3, 1> e_o_n = computeOrientationError(toEigen(base_T_object.M * R_offset),
                                                                           toEigen(robot.getEEFrame().M));
               // to obtain a certain EE position i have to modify desired position
-              // Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
-              Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,
-                                                                   toEigen(robot.getEEFrame().p));
+              Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
+            //   Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,
+            //                                                        toEigen(robot.getEEFrame().p));
 
               Eigen::Matrix<double, 6, 1> x_tilde;
-              x_tilde << e_p, e_o_w[0], e_o[1], e_o[2];
+              x_tilde << e_p, e_o[0], e_o[1], e_o[2];
 //            Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
               std::cout << "error: \n" << x_tilde << std::endl;
 
@@ -237,19 +237,21 @@ int main(int argc, char **argv)
                 // Using the controller required by point 2.b
                 Eigen::Matrix<double,3,6> L;
                 // L being a 3x6 matrix, it is defined by two 3x3 blocks
-                L.block(0,0,3,3) = -toEigen(cam_T_object.M) * (Eigen::Matrix<double,3,3>::Identity() - (aruco_pos_n * aruco_pos_n.transpose()))/cam_T_object.p.Norm();
-                L.block(0,3,3,3) = toEigen(cam_T_object.M) * skew(aruco_pos_n);
+                L.block(0,0,3,3) = -toEigen(robot.getEEFrame().M) * (Eigen::Matrix<double,3,3>::Identity() - 
+                        (aruco_pos_n * aruco_pos_n.transpose()))/cam_T_object.p.Norm();
+                L.block(0,3,3,3) = toEigen(robot.getEEFrame().M) * skew(aruco_pos_n);
                 Eigen::MatrixXd LJ_pinv = (L * J_cam.data).completeOrthogonalDecomposition().pseudoInverse();
+                // Eigen::MatrixXd LJ_pinv = weightedPseudoInverse(L,J_cam.data);
                 Eigen::MatrixXd Null_projector = Eigen::Matrix<double,7,7>::Identity() - (LJ_pinv * (L * J_cam.data));
-                Eigen::Vector3d sd; sd << 0, 0, -1;
-//                dqd.data = 0.2 * LJ_pinv * sd; //+ Null_projector * toEigen(jnt_pos);
-                std::cout << "dqd: \n" << dqd.data << std::endl;
+                Eigen::Vector3d sd; sd << 0, 0, 1;
+                dqd.data = 0.001 * LJ_pinv * sd; //+ Null_projector * toEigen(jnt_pos);
+                // std::cout << "dqd: \n" << dqd.data << std::endl;
 
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
             // std::cout << "Rd: " << std::endl << toEigen(robot.getEEFrame().M*Re) << std::endl;
-            // std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
+            std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
             // std::cout << "aruco_pos_n.norm(): " << std::endl << aruco_pos_n.norm() << std::endl;
             // std::cout << "Re: " << std::endl << Re << std::endl;
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
