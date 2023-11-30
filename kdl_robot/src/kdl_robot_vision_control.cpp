@@ -205,20 +205,21 @@ int main(int argc, char **argv)
             // compute errors
             Eigen::Vector3d p_offset, r_e; 
             p_offset << 0.4,0,0;
-            r_e << 1,1,1;
+            r_e << 1,-1,1;
             r_e.normalize();
+            // this is the rotation matrix of the object in camera frame
             KDL::Rotation R_offset = KDL::Rotation::Rot(KDL::Vector(r_e[0],r_e[1],r_e[2]), 2*3.14/3);
 
             Eigen::Matrix<double,3,1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M*Re), toEigen(robot.getEEFrame().M));
             Eigen::Matrix<double,3,1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-            Eigen::Matrix<double,3,1> e_o_n = computeOrientationError(toEigen(base_T_object.M), toEigen(robot.getEEFrame().M));
+            Eigen::Matrix<double,3,1> e_o_n = computeOrientationError(toEigen(base_T_object.M*R_offset), toEigen(robot.getEEFrame().M));
             // to obtain a certain EE position i have to modify desired position
             // Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
             Eigen::Matrix<double,3,1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,toEigen(robot.getEEFrame().p));
-            std::cout << "error_pos: \n" << e_p << std::endl;
-            
-            Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_w[0], e_o[1], e_o[2];
-            // Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
+    
+            //Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_w[0], e_o[1], e_o[2];
+            Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
+            std::cout << "error: \n" << x_tilde << std::endl;
 
             // resolved velocity control low
             Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
