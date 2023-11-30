@@ -194,19 +194,31 @@ int main(int argc, char **argv)
             // compute current jacobians
             KDL::Jacobian J_cam = robot.getEEJacobian();
             KDL::Frame cam_T_object(KDL::Rotation::Quaternion(aruco_pose[3], aruco_pose[4], aruco_pose[5], aruco_pose[6]), KDL::Vector(aruco_pose[0], aruco_pose[1], aruco_pose[2]));
-
+            KDL::Frame base_T_object = robot.getEEFrame()*cam_T_object;
             // look at point: compute rotation error from angle/axis
             Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
-            aruco_pos_n.normalize();
+            aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera 
             Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
             double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
             KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
-
+            
             // compute errors
+            Eigen::Vector3d p_offset, r_e; 
+            p_offset << 0.4,0,0;
+            r_e << 1,1,1;
+            r_e.normalize();
+            KDL::Rotation R_offset = KDL::Rotation::Rot(KDL::Vector(r_e[0],r_e[1],r_e[2]), 2*3.14/3);
+
             Eigen::Matrix<double,3,1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M*Re), toEigen(robot.getEEFrame().M));
             Eigen::Matrix<double,3,1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-            Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
+            Eigen::Matrix<double,3,1> e_o_n = computeOrientationError(toEigen(base_T_object.M), toEigen(robot.getEEFrame().M*R_offset.Inverse()));
+            // to obtain a certain EE position i have to modify desired position
+            // Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
+            Eigen::Matrix<double,3,1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,toEigen(robot.getEEFrame().p));
+            std::cout << "error_pos: \n" << e_p << std::endl;
+            
             Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_w[0], e_o[1], e_o[2];
+            // Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
 
             // resolved velocity control low
             Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
