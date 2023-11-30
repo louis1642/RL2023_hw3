@@ -13,7 +13,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
-#define USE_IMPROVED_CONTROLLER 1
+#define USING_CONTROLLER_2B 1
 
 // Global variables
 std::vector<double> jnt_pos(7,0.0), init_jnt_pos(7,0.0), jnt_vel(7,0.0), aruco_pose(7,0.0);
@@ -198,12 +198,12 @@ int main(int argc, char **argv)
             KDL::Frame base_T_object = robot.getEEFrame()*cam_T_object;
             // look at point: compute rotation error from angle/axis
             Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
-            aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera 
+            aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera (s in the pdf)
             Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
             double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
             KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
 
-            if (!USE_IMPROVED_CONTROLLER) {
+            if (!USING_CONTROLLER_2B) {
 
               // compute errors
               Eigen::Vector3d p_offset, r_e;
@@ -241,8 +241,8 @@ int main(int argc, char **argv)
                 L.block(0,3,3,3) = toEigen(cam_T_object.M) * skew(aruco_pos_n);
                 Eigen::MatrixXd LJ_pinv = (L * J_cam.data).completeOrthogonalDecomposition().pseudoInverse();
                 Eigen::MatrixXd Null_projector = Eigen::Matrix<double,7,7>::Identity() - (LJ_pinv * (L * J_cam.data));
-                Eigen::Vector3d sd; sd << 0, 0, 0.4;
-                dqd.data = lambda * LJ_pinv * sd + Null_projector * toEigen(jnt_pos);
+                Eigen::Vector3d sd; sd << 0, 0, -1;
+//                dqd.data = 0.2 * LJ_pinv * sd; //+ Null_projector * toEigen(jnt_pos);
                 std::cout << "dqd: \n" << dqd.data << std::endl;
 
             }
