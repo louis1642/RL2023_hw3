@@ -180,7 +180,7 @@ int main(int argc, char **argv)
     KDL::Frame Fi = robot.getEEFrame();
     Eigen::Vector3d pdi = toEigen(Fi.p);
 
-    while (true)
+    while (ros::ok())
     {
         if (robot_state_available && aruco_pose_available)
         {
