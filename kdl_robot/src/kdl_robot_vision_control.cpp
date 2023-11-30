@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 
             Eigen::Matrix<double,3,1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M*Re), toEigen(robot.getEEFrame().M));
             Eigen::Matrix<double,3,1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-            Eigen::Matrix<double,3,1> e_o_n = computeOrientationError(toEigen(base_T_object.M), toEigen(robot.getEEFrame().M*R_offset.Inverse()));
+            Eigen::Matrix<double,3,1> e_o_n = computeOrientationError(toEigen(base_T_object.M), toEigen(robot.getEEFrame().M));
             // to obtain a certain EE position i have to modify desired position
             // Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
             Eigen::Matrix<double,3,1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,toEigen(robot.getEEFrame().p));
