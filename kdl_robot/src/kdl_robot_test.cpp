@@ -5,16 +5,18 @@
 #include "kdl_parser/kdl_parser.hpp"
 #include "urdf/model.h"
 #include <std_srvs/Empty.h>
+#include "eigen_conversions/eigen_kdl.h"
 
 #include "ros/ros.h"
 #include "std_msgs/Float64.h"
 #include "sensor_msgs/JointState.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
 
 // Global variables
-std::vector<double> jnt_pos(7,0.0), jnt_vel(7,0.0), obj_pos(6,0.0),  obj_vel(6,0.0), aruco_pose(7,0.0);;
-bool robot_state_available = false; // aruco_pose_available = false;;
+std::vector<double> jnt_pos(7,0.0), jnt_vel(7,0.0), obj_pos(6,0.0),  obj_vel(6,0.0), aruco_pose(7,0.0);
+bool robot_state_available = false, aruco_pose_available = false;
 
 // Functions
 KDLRobot createRobot(std::string robot_string)
@@ -66,7 +68,20 @@ KDLPlanner chooseTrajectory(int trajFlag, Eigen::Vector3d init_position, Eigen::
             return KDLPlanner(traj_duration, acc_duration, init_position, end_position);  
     }
     
-                    }
+}
+
+
+void arucoPoseCallback(const geometry_msgs::PoseStamped & msg){
+    aruco_pose_available = true;
+    aruco_pose.clear();
+    aruco_pose.push_back(msg.pose.position.x);
+    aruco_pose.push_back(msg.pose.position.y);
+    aruco_pose.push_back(msg.pose.position.z);
+    aruco_pose.push_back(msg.pose.orientation.x);
+    aruco_pose.push_back(msg.pose.orientation.y);
+    aruco_pose.push_back(msg.pose.orientation.z);
+    aruco_pose.push_back(msg.pose.orientation.w);
+}
 
 // Main
 int main(int argc, char **argv)
@@ -85,6 +100,7 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(500);
 
     // Subscribers
+    ros::Subscriber aruco_pose_sub = n.subscribe("/aruco_single/pose", 1, arucoPoseCallback);
     ros::Subscriber joint_state_sub = n.subscribe("/iiwa/joint_states", 1, jointStateCallback);
 
     // Publishers
@@ -153,8 +169,14 @@ int main(int argc, char **argv)
     robot.update(jnt_pos, jnt_vel);
     int nrJnts = robot.getNrJnts();
 
-    // Specify an end-effector 
-    robot.addEE(KDL::Frame::Identity());
+   // Specify an end-effector: camera in flange transform
+    KDL::Frame ee_T_cam;
+    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
+    ee_T_cam.p = KDL::Vector(0,0,0.025);
+    robot.addEE(ee_T_cam);
+
+    // // Specify an end-effector 
+    // robot.addEE(KDL::Frame::Identity());
 
     // Joints
     KDL::JntArray qd(robot.getNrJnts()),dqd(robot.getNrJnts()),ddqd(robot.getNrJnts());
@@ -218,7 +240,7 @@ int main(int argc, char **argv)
     KDL::Frame des_pose = KDL::Frame::Identity(); KDL::Twist des_cart_vel = KDL::Twist::Zero(), des_cart_acc = KDL::Twist::Zero();
     des_pose.M = robot.getEEFrame().M;
 
-    while ((ros::Time::now()-begin).toSec() < 2*traj_duration + init_time_slot)
+    while ((ros::Time::now()-begin).toSec() < 2*traj_duration + init_time_slot) // ?
     {
         if (robot_state_available)
         {

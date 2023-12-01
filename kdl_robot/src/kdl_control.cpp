@@ -8,30 +8,26 @@ KDLController::KDLController(KDLRobot &_robot)
 Eigen::VectorXd KDLController::idCntr(KDL::JntArray &_qd,
                                       KDL::JntArray &_dqd,
                                       KDL::JntArray &_ddqd,
-                                      std::vector<double> &aruco_pose_,
-                                      double _Kp, double _Kd, double &e_norm
-                                      )
+                                      double _Kp, double _Kd, double &e_norm)
 {
     // read current state
     Eigen::VectorXd q = robot_->getJntValues();
     Eigen::VectorXd dq = robot_->getJntVelocities();
 
     // calculate errors
-    Eigen::VectorXd e_p = _qd.data - q;
+    Eigen::VectorXd e = _qd.data - q;
     // std::cout << "error norm: " << e.norm() << std::endl;
-    e_p_norm = e_p.norm();
-    Eigen::VectorXd de_p = _dqd.data - dq;
+    e_norm = e.norm();
+    Eigen::VectorXd de = _dqd.data - dq;
 
     Eigen::VectorXd ddqd = _ddqd.data;
-    return robot_->getJsim() * (ddqd + _Kd*de_p + _Kp*e_p)
+    return robot_->getJsim() * (ddqd + _Kd*de + _Kp*e)
             + robot_->getCoriolis() + robot_->getGravity() /*+ robot_->getFriction() /*friction compensation?*/;
 }
 
 Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
                                       KDL::Twist &_desVel,
                                       KDL::Twist &_desAcc,
-                                      std::vector<double> &aruco_pose_,
-
                                       double _Kpp, double _Kpo,
                                       double _Kdp, double _Kdo, double &e_norm)
 {
@@ -54,23 +50,7 @@ Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
     // position
     Eigen::Vector3d p_d(_desPos.p.data);
     Eigen::Vector3d p_e(robot_->getEEFrame().p.data);
-    //Eigen::Matrix<double,3,3,Eigen::RowMajor> R_d(_desPos.M.data);
-    KDL::Frame Fi = robot_->getEEFrame();
-   
-
-    // compute current jacobians
-    KDL::Jacobian J_cam = robot.getEEJacobian();
-    KDL::Frame cam_T_object(KDL::Rotation::Quaternion(aruco_pose_[3], aruco_pose_[4], aruco_pose[5], aruco_pose_[6]), KDL::Vector(aruco_pose_[0], aruco_pose_[1], aruco_pose_[2]));
-    KDL::Frame base_T_object = robot->getEEFrame()*cam_T_object;
-
-    // look at point: compute rotation error from angle/axis
-    Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
-    aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera (s in the pdf)
-    Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
-    double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
-    KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
-
-
+    Eigen::Matrix<double,3,3,Eigen::RowMajor> R_d(_desPos.M.data);
     Eigen::Matrix<double,3,3,Eigen::RowMajor> R_e(robot_->getEEFrame().M.data);
     R_d = matrixOrthonormalization(R_d);
     R_e = matrixOrthonormalization(R_e);
@@ -97,19 +77,14 @@ Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
 //    // Eigen::Matrix<double,3,3> R_sh = shCntr(lin_acc);
 
     // compute orientation errors
-
-    Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
-                                                            toEigen(robot.getEEFrame().M));
-    Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-
+    Eigen::Matrix<double,3,1> e_o = computeOrientationError(R_d,R_e);
     Eigen::Matrix<double,3,1> dot_e_o = computeOrientationVelocityError(omega_d,
                                                                         omega_e,
                                                                         R_d,
                                                                         R_e);
     Eigen::Matrix<double,6,1> x_tilde;
     Eigen::Matrix<double,6,1> dot_x_tilde;
-    x_tilde << e_p, e_o[0], e_o[1], e_o[2];
-    
+    x_tilde << e_p, e_o;
     e_norm = x_tilde.norm();
     dot_x_tilde << dot_e_p, dot_e_o;    //dot_e_o;
     dot_dot_x_d << dot_dot_p_d, dot_dot_r_d;
