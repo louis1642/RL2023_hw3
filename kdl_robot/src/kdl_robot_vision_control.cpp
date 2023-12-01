@@ -93,7 +93,9 @@ int main(int argc, char **argv)
     ros::Publisher joint4_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J4_controller/command", 1);
     ros::Publisher joint5_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J5_controller/command", 1);
     ros::Publisher joint6_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J6_controller/command", 1);
-    ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);    
+    ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);
+    // publisher to plot s
+//    ros::Publisher s_pub = n.advertise<>()
 
     // Services
     ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>("/gazebo/set_model_configuration");
@@ -235,24 +237,29 @@ int main(int argc, char **argv)
                          (qdi - toEigen(jnt_pos));
             } else {
                 // Using the controller required by point 2.b
+                Eigen::Matrix<double,3,3> R_c = toEigen(robot.getEEFrame().M);
                 Eigen::Matrix<double,3,6> L;
                 // L being a 3x6 matrix, it is defined by two 3x3 blocks
-                L.block(0,0,3,3) = -toEigen(robot.getEEFrame().M) * (Eigen::Matrix<double,3,3>::Identity() - 
-                        (aruco_pos_n * aruco_pos_n.transpose()))/cam_T_object.p.Norm();
-                L.block(0,3,3,3) = toEigen(robot.getEEFrame().M) * skew(aruco_pos_n);
+                L.block(0,0,3,3) = (-1/cam_T_object.p.Norm()) * (Eigen::Matrix<double,3,3>::Identity() -
+                        (aruco_pos_n * aruco_pos_n.transpose())) * R_c.transpose();
+                L.block(0,3,3,3) = skew(aruco_pos_n) * R_c.transpose();
+                // note: matrix R_c is transposed and then post-multiplied. R_c represents the rotation to go from base frame to camera frame.
+                //        Therefore, we need the transposed matrix to go from the camera to the base frame
+
                 Eigen::MatrixXd LJ_pinv = (L * J_cam.data).completeOrthogonalDecomposition().pseudoInverse();
                 // Eigen::MatrixXd LJ_pinv = weightedPseudoInverse(L,J_cam.data);
+
                 Eigen::MatrixXd Null_projector = Eigen::Matrix<double,7,7>::Identity() - (LJ_pinv * (L * J_cam.data));
                 Eigen::Vector3d sd; sd << 0, 0, 1;
-                dqd.data = 0.001 * LJ_pinv * sd; //+ Null_projector * toEigen(jnt_pos);
+                dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
 
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
             // std::cout << "Rd: " << std::endl << toEigen(robot.getEEFrame().M*Re) << std::endl;
-            std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
-            // std::cout << "aruco_pos_n.norm(): " << std::endl << aruco_pos_n.norm() << std::endl;
+//            std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
+             std::cout << "aruco_pos_n.norm(): " << std::endl << aruco_pos_n.norm() << std::endl;
             // std::cout << "Re: " << std::endl << Re << std::endl;
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
             // std::cout << "jsim: " << std::endl << robot.getJsim() << std::endl;
