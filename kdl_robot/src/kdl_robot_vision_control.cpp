@@ -13,7 +13,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
-#define USING_CONTROLLER_2B 1
+#define USING_CONTROLLER_2B 0
 
 // Global variables
 std::vector<double> jnt_pos(7,0.0), init_jnt_pos(7,0.0), jnt_vel(7,0.0), aruco_pose(7,0.0);
@@ -196,41 +196,39 @@ int main(int argc, char **argv)
             KDL::Jacobian J_cam = robot.getEEJacobian();
             KDL::Frame cam_T_object(KDL::Rotation::Quaternion(aruco_pose[3], aruco_pose[4], aruco_pose[5], aruco_pose[6]), KDL::Vector(aruco_pose[0], aruco_pose[1], aruco_pose[2]));
             KDL::Frame base_T_object = robot.getEEFrame()*cam_T_object;
+            
+            // compute offset transformation
+            KDL::Rotation R_off(1,0,0,0,-1,0,0,0,0);
+            KDL::Vector P_off(0,0,0.3);
+            KDL::Frame T_offset(R_off,P_off);
+            KDL::Frame T_desired = base_T_object*T_offset; 
+            
+            
             // look at point: compute rotation error from angle/axis
             Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
             aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera (s in the pdf)
-            Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
-            double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
-            KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
+            // Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
+            // double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
+            // KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
 
             if (!USING_CONTROLLER_2B) {
 
-              // compute errors
-              Eigen::Vector3d p_offset, r_e;
-              p_offset << 0.4, 0, 0;
-              r_e << 1, -1, 1;
-              r_e.normalize();
-              // this is the rotation matrix of the object in camera frame
-              KDL::Rotation R_offset = KDL::Rotation::Rot(KDL::Vector(r_e[0], r_e[1], r_e[2]), 2 * 3.14 / 3);
-
-              Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
-                                                                        toEigen(robot.getEEFrame().M));
-              Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-              Eigen::Matrix<double, 3, 1> e_o_n = computeOrientationError(toEigen(base_T_object.M * R_offset),
-                                                                          toEigen(robot.getEEFrame().M));
-              // to obtain a certain EE position i have to modify desired position
-              Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
-            //   Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(base_T_object.p) - p_offset,
-            //                                                        toEigen(robot.getEEFrame().p));
-
-              Eigen::Matrix<double, 6, 1> x_tilde;
-              x_tilde << e_p, e_o[0], e_o[1], e_o[2];
-//            Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
-              std::cout << "error: \n" << x_tilde << std::endl;
+            
+            //   Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
+            //                                                             toEigen(robot.getEEFrame().M));
+            //   Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
+              Eigen::Matrix<double, 3, 1> e_o_n = computeOrientationError(toEigen(T_desired.M),
+                                                                   toEigen(robot.getEEFrame().M));
+            //   Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
+                Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(T_desired.p),
+                                                                   toEigen(robot.getEEFrame().p));
+            //   Eigen::Matrix<double, 6, 1> x_tilde;
+            //   x_tilde << e_p, e_o_w[0], e_o[1], e_o[2];
+           Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
 
               // resolved velocity control low
               Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
-              dqd.data = lambda * J_pinv * x_tilde +
+              dqd.data = 1.5 * J_pinv * x_tilde +
                          10 * (Eigen::Matrix<double, 7, 7>::Identity() - J_pinv * J_cam.data) *
                          (qdi - toEigen(jnt_pos));
             } else {
@@ -250,8 +248,9 @@ int main(int argc, char **argv)
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
-            // std::cout << "Rd: " << std::endl << toEigen(robot.getEEFrame().M*Re) << std::endl;
-            std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
+            std::cout << "R: " << std::endl << toEigen(cam_T_object.M) << std::endl;
+            std::cout << "P: " << std::endl << toEigen(cam_T_object.p) << std::endl;
+            // std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
             // std::cout << "aruco_pos_n.norm(): " << std::endl << aruco_pos_n.norm() << std::endl;
             // std::cout << "Re: " << std::endl << Re << std::endl;
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
