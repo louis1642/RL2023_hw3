@@ -170,13 +170,13 @@ int main(int argc, char **argv)
     int nrJnts = robot.getNrJnts();
 
    // Specify an end-effector: camera in flange transform
-    KDL::Frame ee_T_cam;
-    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
-    ee_T_cam.p = KDL::Vector(0,0,0.025);
-    robot.addEE(ee_T_cam);
+//    KDL::Frame ee_T_cam;
+//    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
+//    ee_T_cam.p = KDL::Vector(0,0,0.025);
+//    robot.addEE(ee_T_cam);
 
     // // Specify an end-effector 
-    // robot.addEE(KDL::Frame::Identity());
+     robot.addEE(KDL::Frame::Identity());
 
     // Joints
     KDL::JntArray qd(robot.getNrJnts()),dqd(robot.getNrJnts()),ddqd(robot.getNrJnts());
