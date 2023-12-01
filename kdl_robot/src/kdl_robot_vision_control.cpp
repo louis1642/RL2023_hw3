@@ -13,6 +13,8 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
+#include "kdl_ros_control/vector3f.h"
+
 #define USING_CONTROLLER_2B 1
 
 // Global variables
@@ -95,7 +97,7 @@ int main(int argc, char **argv)
     ros::Publisher joint6_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J6_controller/command", 1);
     ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);
     // publisher to plot s
-//    ros::Publisher s_pub = n.advertise<>()
+    ros::Publisher s_pub = n.advertise<kdl_ros_control::vector3f>("/iiwa/s", 1);
 
     // Services
     ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>("/gazebo/set_model_configuration");
@@ -183,7 +185,9 @@ int main(int argc, char **argv)
     KDL::Frame Fi = robot.getEEFrame();
     Eigen::Vector3d pdi = toEigen(Fi.p);
 
-    while (ros::ok())
+  kdl_ros_control::vector3f s_msg;
+
+  while (ros::ok())
     {
         if (robot_state_available && aruco_pose_available)
         {
@@ -254,6 +258,9 @@ int main(int argc, char **argv)
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
 
+                s_msg.x.data = aruco_pos_n(0, 0);
+                s_msg.y.data = aruco_pos_n(1, 0);
+                s_msg.z.data = aruco_pos_n(2, 0);
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
@@ -291,6 +298,8 @@ int main(int argc, char **argv)
         joint5_dq_pub.publish(dq5_msg);
         joint6_dq_pub.publish(dq6_msg);
         joint7_dq_pub.publish(dq7_msg);
+
+        s_pub.publish(s_msg);
 
         ros::spinOnce();
         loop_rate.sleep();
