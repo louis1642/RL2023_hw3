@@ -14,11 +14,18 @@
 #include <kdl/utilities/error.h>
 #include <kdl/trajectory_composite.hpp>
 #include "Eigen/Dense"
+#include <cmath>
 
 struct trajectory_point{
   Eigen::Vector3d pos = Eigen::Vector3d::Zero();
   Eigen::Vector3d vel = Eigen::Vector3d::Zero();
   Eigen::Vector3d acc = Eigen::Vector3d::Zero();
+};
+
+struct curvilinearAbscissa{
+    double s;
+    double sdot;
+    double sddot;
 };
 
 class KDLPlanner
@@ -38,12 +45,31 @@ public:
 
     KDL::Trajectory* getTrajectory();
 
-    //////////////////////////////////
+    ////////////////////////////////// CONSTRUCTORS
+    // constructor to compute linear trajectory with trapezoidal velocity profile
     KDLPlanner(double _trajDuration, double _accDuration,
                Eigen::Vector3d _trajInit, Eigen::Vector3d _trajEnd);
+
+    // constructor to compute circular trajectory with trapezoidal velocity profile
+    KDLPlanner(double _trajDuration, double _accDuration,
+               Eigen::Vector3d _trajInit, double _trajRadius);
+
+    // constructor to compute linear trajectory with cubic polinomial profile
+    KDLPlanner(double _trajDuration,
+               Eigen::Vector3d _trajInit, Eigen::Vector3d _trajEnd);
+    
+    // constructor to compute circular trajectory with cubic polinomial profile
+    KDLPlanner(double _trajDuration, 
+        Eigen::Vector3d _trajInit, double _trajRadius);
+    //////////////////////////////////////////
+
+    // trajectory_point compute_trajectory(double time);
     trajectory_point compute_trajectory(double time);
 
+
 private:
+
+
 
     KDL::Path_RoundedComposite* path_;
     KDL::Path_Circle* path_circle_;
@@ -51,10 +77,15 @@ private:
 	KDL::Trajectory* traject_;
 
     //////////////////////////////////
-    double trajDuration_, accDuration_;
+    double trajDuration_, accDuration_, trajRadius_;
     Eigen::Vector3d trajInit_, trajEnd_;
     trajectory_point p;
 
+    trajectory_point compute_circle_trajectory(double time);
+    trajectory_point compute_linear_trajectory(double time);
+    
+    curvilinearAbscissa trapezoidal_vel(double time);
+    curvilinearAbscissa cubic_polinomial(double time);
 };
 
 #endif
