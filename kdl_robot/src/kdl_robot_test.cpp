@@ -280,14 +280,24 @@ int main(int argc, char **argv)
 
             double r_e, p_e, y_e;
             Re.GetRPY(r_e,p_e,y_e);
-            KDL::Rotation Rd = robot.getEEFrame().M*Re;
+            KDL::Rotation Rd = robot.getEEFrame().M;
             Rd.GetRPY(r_e,p_e,y_e);
             des_pose.p = KDL::Vector(p.pos[0],p.pos[1],p.pos[2]);
 
-            des_pose.M = KDL::Rotation::RPY(-1.57,p_e,y_e);
+            double roll, pitch, yaw;
+            roll = -r_e - 1.57;
+            pitch = std::acos(aruco_pos_n[2]);
+            yaw = std::asin(aruco_pos_n[1]);
+            des_pose.M = robot.getEEFrame().M * KDL::Rotation::RPY(roll,pitch,yaw);
+
             des_pose.M.GetRPY(r_e,p_e,y_e);
             Eigen::Vector3d rpy_angles_nw; rpy_angles_nw << r_e,p_e,y_e;
             std::cout << "rpy_nw: " << std::endl << rpy_angles_nw << std::endl << std::endl;
+
+            // des_pose.M = KDL::Rotation::RPY(-1.57,p_e,y_e);
+            // des_pose.M.GetRPY(r_e,p_e,y_e);
+            // Eigen::Vector3d rpy_angles_nw; rpy_angles_nw << r_e,p_e,y_e;
+            // std::cout << "rpy_nw: " << std::endl << rpy_angles_nw << std::endl << std::endl;
 
             des_pose.M = robot.getEEFrame().M * Re;
             des_pose.M.GetRPY(r_e,p_e,y_e);
