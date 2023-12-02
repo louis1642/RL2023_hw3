@@ -207,7 +207,7 @@ int main(int argc, char **argv)
     end_position << init_cart_pose.p.x(), -init_cart_pose.p.y(), init_cart_pose.p.z();
 
     // Plan trajectory    
-    double traj_duration = 1.5, acc_duration = 0.5, t = 0.0, init_time_slot = 1.0, traj_radius = 0.1;
+    double traj_duration = 10, acc_duration = 0.5, t = 0.0, init_time_slot = 1.0, traj_radius = 0.1;
 
     /////////////////// TESTING /////////////////////////////////////////////////////////
 
