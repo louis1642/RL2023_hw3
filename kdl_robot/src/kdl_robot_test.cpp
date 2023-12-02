@@ -169,16 +169,16 @@ int main(int argc, char **argv)
     robot.update(jnt_pos, jnt_vel);
     int nrJnts = robot.getNrJnts();
 
-   // Specify an end-effector: camera in flange transform
+    // Specify an end-effector: camera in flange transform
     KDL::Frame ee_T_cam;
-//    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
-    ee_T_cam.M = KDL::Rotation::Identity();
-//    ee_T_cam.p = KDL::Vector(0,0,0.025);
-    ee_T_cam.p = KDL::Vector(0,0,0.1);
+    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
+    // ee_T_cam.M = KDL::Rotation::Identity();
+    ee_T_cam.p = KDL::Vector(0,0,0.025);
+    // ee_T_cam.p = KDL::Vector(0,0,0.1);
     robot.addEE(ee_T_cam);
 
     // // Specify an end-effector 
-//     robot.addEE(KDL::Frame::Identity());
+    // robot.addEE(KDL::Frame::Identity());
 
     // Joints
     KDL::JntArray qd(robot.getNrJnts()),dqd(robot.getNrJnts()),ddqd(robot.getNrJnts());
@@ -248,7 +248,7 @@ int main(int argc, char **argv)
         {
             // Update robot
             robot.update(jnt_pos, jnt_vel);
-
+            
             // Update time
             t = (ros::Time::now()-begin).toSec();
             std::cout << "time: " << t << std::endl;
@@ -284,16 +284,20 @@ int main(int argc, char **argv)
             // std::cout << "tau: " << std::endl << tau.transpose() << std::endl;
             // std::cout << "desired_pose: " << std::endl << des_pose << std::endl;
             // std::cout << "current_pose: " << std::endl << robot.getEEFrame() << std::endl;
+            // std::cout << "init_position:\n" << init_position << std::endl << std::endl;
+            // std::cout << "end_position:\n" << init_position << std::endl << std::endl;
+            // std::cout << "desired_position: " << std::endl << toEigen(des_pose.p) << std::endl << std::endl;
+            // std::cout << "current_position:\n" << toEigen(robot.getEEFrame().p) << std::endl << std::endl;
 
             // inverse kinematics
             qd.data << jnt_pos[0], jnt_pos[1], jnt_pos[2], jnt_pos[3], jnt_pos[4], jnt_pos[5], jnt_pos[6];
             // qd = robot.getInvKin(qd, des_pose);
 
-            robot.getInverseKinematics(des_pose, des_cart_vel, des_cart_acc,qd,dqd,ddqd);
+            KDL::Frame flangePose = des_pose*(robot.getFlangeEE().Inverse());
+            robot.getInverseKinematics(flangePose, des_cart_vel, des_cart_acc,qd,dqd,ddqd);
 
             // joint space inverse dynamics control
             tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
-            std::cout << "tau: " << tau << std::endl;
             double Kp = 400;
             double Ko = 400;
             // Cartesian space inverse dynamics control
