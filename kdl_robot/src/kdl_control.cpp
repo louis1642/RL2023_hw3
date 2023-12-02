@@ -23,12 +23,12 @@ Eigen::VectorXd KDLController::idCntr(KDL::JntArray &_qd,
             + robot_->getCoriolis() + robot_->getGravity() /*friction compensation?*/;
 }
 
-Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
-                                      KDL::Twist &_desVel,
-                                      KDL::Twist &_desAcc,
-                                      double _Kpp, double _Kpo,
-                                      double _Kdp, double _Kdo)
-{
+//Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
+//                                      KDL::Twist &_desVel,
+//                                      KDL::Twist &_desAcc,
+//                                      double _Kpp, double _Kpo,
+//                                      double _Kdp, double _Kdo)
+//{
 //    // calculate gain matrices
 //    Eigen::Matrix<double,6,6> Kp, Kd;
 //    Kp.block(0,0,3,3) = _Kpp*Eigen::Matrix3d::Identity();
@@ -116,5 +116,5 @@ Eigen::VectorXd KDLController::idCntr(KDL::Frame &_desPos,
 
 //    return M * (Jpinv*y + (I-Jpinv*J)*(/*- 10*grad */- 1*robot_->getJntVelocities()))
 //            + robot_->getGravity() + robot_->getCoriolis();
-}
+//}
 
