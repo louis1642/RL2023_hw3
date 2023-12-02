@@ -278,18 +278,21 @@ int main(int argc, char **argv)
             double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
             KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
 
-            double r_e, p_e, y_e, r_c, p_c, y_c;
+            double r_e, p_e, y_e;
             Re.GetRPY(r_e,p_e,y_e);
-            robot.getEEFrame().M.GetRPY(r_c,p_c,y_c);
-            KDL::Rotation Rd = KDL::Rotation::RPY(0,p_e,y_e);
-            KDL::Rotation Rdes = robot.getEEFrame().M*Rd;
-            Rdes.GetRPY(r_e,p_e,y_e);
-            
-
+            KDL::Rotation Rd = robot.getEEFrame().M*Re;
+            Rd.GetRPY(r_e,p_e,y_e);
             des_pose.p = KDL::Vector(p.pos[0],p.pos[1],p.pos[2]);
-            // des_pose.M = robot.getEEFrame().M * Rd;
-            des_pose.M = KDL::Rotation::RPY(0,p_e,y_e);
-            
+
+            des_pose.M = KDL::Rotation::RPY(-1.57,p_e,y_e);
+            des_pose.M.GetRPY(r_e,p_e,y_e);
+            Eigen::Vector3d rpy_angles_nw; rpy_angles_nw << r_e,p_e,y_e;
+            std::cout << "rpy_nw: " << std::endl << rpy_angles_nw << std::endl << std::endl;
+
+            des_pose.M = robot.getEEFrame().M * Re;
+            des_pose.M.GetRPY(r_e,p_e,y_e);
+            Eigen::Vector3d rpy_angles_w; rpy_angles_w << r_e,p_e,y_e;
+            std::cout << "rpy_w: " << std::endl << rpy_angles_w << std::endl << std::endl;
             
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
             // std::cout << "jsim: " << std::endl << robot.getJsim() << std::endl;
