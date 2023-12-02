@@ -132,10 +132,10 @@ int main(int argc, char **argv)
     robot_init_config.request.joint_positions.push_back(0.0);
     robot_init_config.request.joint_positions.push_back(1.57);
     robot_init_config.request.joint_positions.push_back(-1.57);
-    robot_init_config.request.joint_positions.push_back(-1.2);
+    robot_init_config.request.joint_positions.push_back(-1.57);
     robot_init_config.request.joint_positions.push_back(1.57);
     robot_init_config.request.joint_positions.push_back(-1.57);
-    robot_init_config.request.joint_positions.push_back(-0.37);
+    robot_init_config.request.joint_positions.push_back(+1.57);
     if(robot_set_state_srv.call(robot_init_config))
         ROS_INFO("Robot state set.");
     else
