@@ -172,9 +172,7 @@ int main(int argc, char **argv)
     // Specify an end-effector: camera in flange transform
     KDL::Frame ee_T_cam;
     ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
-    // ee_T_cam.M = KDL::Rotation::Identity();
     ee_T_cam.p = KDL::Vector(0,0,0.025);
-    // ee_T_cam.p = KDL::Vector(0,0,0.1);
     robot.addEE(ee_T_cam);
 
     // // Specify an end-effector 
@@ -280,8 +278,17 @@ int main(int argc, char **argv)
             double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
             KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
 
+            double r_e, p_e, y_e, r_c, p_c, y_c;
+            Re.GetRPY(r_e,p_e,y_e);
+            robot.getEEFrame().M.GetRPY(r_c,p_c,y_c);
+            KDL::Rotation Rd = KDL::Rotation::RPY(0,p_e,y_e);
+            KDL::Rotation Rdes = robot.getEEFrame().M*Rd;
+            Rdes.GetRPY(r_e,p_e,y_e);
+            
+
             des_pose.p = KDL::Vector(p.pos[0],p.pos[1],p.pos[2]);
-            des_pose.M = robot.getEEFrame().M * Re;
+            // des_pose.M = robot.getEEFrame().M * Rd;
+            des_pose.M = KDL::Rotation::RPY(0,p_e,y_e);
             
             
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
@@ -307,12 +314,12 @@ int main(int argc, char **argv)
             // robot.getInverseKinematics doesn't know about the added EE -> tricking it into thinking the robot ends with the flange
 
             // joint space inverse dynamics control
-            tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
+            // tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
             double Kp = 400;
             double Ko = 400;
             // Cartesian space inverse dynamics control
-            // tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
-            //                          Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
+            tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
+                                     Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
 
             // Set torques
             tau1_msg.data = tau[0];
