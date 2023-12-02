@@ -295,6 +295,7 @@ int main(int argc, char **argv)
 
             KDL::Frame flangePose = des_pose*(robot.getFlangeEE().Inverse());
             robot.getInverseKinematics(flangePose, des_cart_vel, des_cart_acc,qd,dqd,ddqd);
+            // robot.getInverseKinematics doesn't know about the added EE -> tricking it into thinking the robot ends with the flange
 
             // joint space inverse dynamics control
             tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
