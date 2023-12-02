@@ -204,7 +204,8 @@ int main(int argc, char **argv)
             KDL::Frame base_T_object = robot.getEEFrame()*cam_T_object;
             
             // compute offset transformation
-            KDL::Rotation R_off(1,0,0,0,-1,0,0,0,0);
+            // KDL::Rotation R_off(1,0,0,0,-1,0,0,0,0);
+            KDL::Rotation R_off = KDL::Rotation::RotX(3.14);
             KDL::Vector P_off(0,0,0.3);
             KDL::Frame T_offset(R_off,P_off);
             KDL::Frame T_desired = base_T_object*T_offset; 
@@ -262,8 +263,8 @@ int main(int argc, char **argv)
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
-            std::cout << "R: " << std::endl << toEigen(cam_T_object.M) << std::endl;
-            std::cout << "P: " << std::endl << toEigen(cam_T_object.p) << std::endl;
+            // std::cout << "R: " << std::endl << toEigen(cam_T_object.M) << std::endl;
+            // std::cout << "P: " << std::endl << toEigen(cam_T_object.p) << std::endl;
             // std::cout << "aruco_pos_n: " << std::endl << aruco_pos_n << std::endl;
             // std::cout << "aruco_pos_n.norm(): " << std::endl << aruco_pos_n.norm() << std::endl;
             // std::cout << "Re: " << std::endl << Re << std::endl;
@@ -276,6 +277,11 @@ int main(int argc, char **argv)
             // std::cout << "tau: " << std::endl << tau.transpose() << std::endl;
             // std::cout << "desired_pose: " << std::endl << des_pose << std::endl;
             // std::cout << "current_pose: " << std::endl << robot.getEEFrame() << std::endl;
+            // double alpha,beta,gamma;
+            // cam_T_object.M.GetEulerZYX(alpha,beta,gamma);
+            // Eigen::Vector3d euler; euler << alpha,beta,gamma;
+            // std::cout << "euler angles:" <<std::endl << euler <<std::endl <<std::endl;
+            // std::cout << "desired rotaion:" <<std::endl << R_off <<std::endl <<std::endl;
         }
         else{
             dqd.data = KP*(toEigen(init_jnt_pos) - toEigen(jnt_pos));
