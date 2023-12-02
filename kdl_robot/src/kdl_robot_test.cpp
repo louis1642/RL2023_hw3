@@ -272,7 +272,16 @@ int main(int argc, char **argv)
                 break;
             }
 
+            // look at point: compute rotation error from angle/axis
+            KDL::Frame cam_T_object(KDL::Rotation::Quaternion(aruco_pose[3], aruco_pose[4], aruco_pose[5], aruco_pose[6]), KDL::Vector(aruco_pose[0], aruco_pose[1], aruco_pose[2]));
+            Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
+            aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera (s in the pdf)
+            Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
+            double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
+            KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
+
             des_pose.p = KDL::Vector(p.pos[0],p.pos[1],p.pos[2]);
+            des_pose.M = robot.getEEFrame().M * Re;
             
             
             // std::cout << "jacobian: " << std::endl << robot.getEEJacobian().data << std::endl;
