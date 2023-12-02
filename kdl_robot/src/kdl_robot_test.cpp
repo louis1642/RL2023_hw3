@@ -5,16 +5,18 @@
 #include "kdl_parser/kdl_parser.hpp"
 #include "urdf/model.h"
 #include <std_srvs/Empty.h>
+#include "eigen_conversions/eigen_kdl.h"
 
 #include "ros/ros.h"
 #include "std_msgs/Float64.h"
 #include "sensor_msgs/JointState.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
 
 // Global variables
-std::vector<double> jnt_pos(7,0.0), jnt_vel(7,0.0), obj_pos(6,0.0),  obj_vel(6,0.0);
-bool robot_state_available = false;
+std::vector<double> jnt_pos(7,0.0), jnt_vel(7,0.0), obj_pos(6,0.0),  obj_vel(6,0.0), aruco_pose(7,0.0);
+bool robot_state_available = false, aruco_pose_available = false;
 
 // Functions
 KDLRobot createRobot(std::string robot_string)
@@ -46,6 +48,41 @@ void jointStateCallback(const sensor_msgs::JointState & msg)
     }
 }
 
+KDLPlanner chooseTrajectory(int trajFlag, Eigen::Vector3d init_position, Eigen::Vector3d end_position, double traj_duration, double acc_duration, 
+                    double t, double init_time_slot, double traj_radius) {
+          // CHECK WHY IT DOESN'T WORK
+    switch(trajFlag) {
+        case 1:
+            return KDLPlanner(traj_duration, acc_duration, init_position, end_position);  
+            break; 
+        case 2:
+            return KDLPlanner(traj_duration, init_position, end_position); 
+            break;
+        case 3:
+            return KDLPlanner(traj_duration, acc_duration, init_position, traj_radius); 
+            break;
+        case 4:
+            return KDLPlanner(traj_duration, init_position, traj_radius);
+            break;
+        default:
+            return KDLPlanner(traj_duration, acc_duration, init_position, end_position);  
+    }
+    
+}
+
+
+void arucoPoseCallback(const geometry_msgs::PoseStamped & msg){
+    aruco_pose_available = true;
+    aruco_pose.clear();
+    aruco_pose.push_back(msg.pose.position.x);
+    aruco_pose.push_back(msg.pose.position.y);
+    aruco_pose.push_back(msg.pose.position.z);
+    aruco_pose.push_back(msg.pose.orientation.x);
+    aruco_pose.push_back(msg.pose.orientation.y);
+    aruco_pose.push_back(msg.pose.orientation.z);
+    aruco_pose.push_back(msg.pose.orientation.w);
+}
+
 // Main
 int main(int argc, char **argv)
 {
@@ -63,6 +100,7 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(500);
 
     // Subscribers
+    ros::Subscriber aruco_pose_sub = n.subscribe("/aruco_single/pose", 1, arucoPoseCallback);
     ros::Subscriber joint_state_sub = n.subscribe("/iiwa/joint_states", 1, jointStateCallback);
 
     // Publishers
@@ -73,6 +111,8 @@ int main(int argc, char **argv)
     ros::Publisher joint5_effort_pub = n.advertise<std_msgs::Float64>("/iiwa/iiwa_joint_5_effort_controller/command", 1);
     ros::Publisher joint6_effort_pub = n.advertise<std_msgs::Float64>("/iiwa/iiwa_joint_6_effort_controller/command", 1);
     ros::Publisher joint7_effort_pub = n.advertise<std_msgs::Float64>("/iiwa/iiwa_joint_7_effort_controller/command", 1);    
+    // error publisher
+    ros::Publisher error_pub = n.advertise<std_msgs::Float64>("/iiwa/error",1);
 
     // Services
     ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>("/gazebo/set_model_configuration");
@@ -102,8 +142,16 @@ int main(int argc, char **argv)
         ROS_INFO("Failed to set robot state.");
 
     // Messages
-    std_msgs::Float64 tau1_msg, tau2_msg, tau3_msg, tau4_msg, tau5_msg, tau6_msg, tau7_msg;
+    std_msgs::Float64 tau1_msg, tau2_msg, tau3_msg, tau4_msg, tau5_msg, tau6_msg, tau7_msg, error_msg;
     std_srvs::Empty pauseSrv;
+
+    // CHOOSE THE DESIRED TRAJECTORY
+    int trajFlag;
+    std::cout << "Choose desired trajectory:" << std::endl
+                << "1. linear (trapezoidal profile)\n" << "2. linear (cubic profile)\n" << 
+                "3. circular (trapezoidal profile)\n" << "4. circular (cubic profile)\n";
+    std::cout << "Insert number: ";
+    std::cin >> trajFlag;
 
     // Wait for robot and object state
     while (!(robot_state_available))
@@ -121,8 +169,16 @@ int main(int argc, char **argv)
     robot.update(jnt_pos, jnt_vel);
     int nrJnts = robot.getNrJnts();
 
-    // Specify an end-effector 
-    robot.addEE(KDL::Frame::Identity());
+    // Specify an end-effector: camera in flange transform
+    KDL::Frame ee_T_cam;
+    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
+    // ee_T_cam.M = KDL::Rotation::Identity();
+    ee_T_cam.p = KDL::Vector(0,0,0.025);
+    // ee_T_cam.p = KDL::Vector(0,0,0.1);
+    robot.addEE(ee_T_cam);
+
+    // // Specify an end-effector 
+    // robot.addEE(KDL::Frame::Identity());
 
     // Joints
     KDL::JntArray qd(robot.getNrJnts()),dqd(robot.getNrJnts()),ddqd(robot.getNrJnts());
@@ -133,29 +189,50 @@ int main(int argc, char **argv)
     Eigen::VectorXd tau;
     tau.resize(robot.getNrJnts());
 
+    // Error
+    double error;
+
     // Update robot
     robot.update(jnt_pos, jnt_vel);
 
     // Init controller
     KDLController controller_(robot);
 
-    // EE's trajectory initial position
+    // Object's trajectory initial position
     KDL::Frame init_cart_pose = robot.getEEFrame();
     Eigen::Vector3d init_position(init_cart_pose.p.data);
 
-    // EE trajectory end position
+    // Object trajectory end position
     Eigen::Vector3d end_position;
     end_position << init_cart_pose.p.x(), -init_cart_pose.p.y(), init_cart_pose.p.z();
 
-    // Plan trajectory
-    double traj_duration = 1.5, acc_duration = 0.5, t = 0.0, init_time_slot = 1.0;
-    KDLPlanner planner(traj_duration, acc_duration, init_position, end_position); // currently using trapezoidal velocity profile
-    
+    // Plan trajectory    
+    double traj_duration = 1.5, acc_duration = 0.5, t = 0.0, init_time_slot = 1.0, traj_radius = 0.1;
+
+    /////////////////// TESTING /////////////////////////////////////////////////////////
+
+    KDLPlanner planner = chooseTrajectory(trajFlag, init_position, end_position, traj_duration, acc_duration, 
+                    t, init_time_slot, traj_radius);
+
+    // THIS IS NOT NECESSARY ANYMORE
+    // uncomment this for linear trajectory with trapezoidal profile
+    // KDLPlanner planner(traj_duration, acc_duration, init_position, end_position);
+
+    // uncomment this for linear trajectory with cubic profile
+    // KDLPlanner planner(traj_duration, init_position, end_position);
+
+    // uncomment this for circle trajectory with trapezoidal profile
+    // KDLPlanner planner(traj_duration, acc_duration, init_position, traj_radius);
+
+    // uncomment this for circle trajectory with cubic profile
+    // KDLPlanner planner(traj_duration, init_position, traj_radius);
+    /////////////////////////////////////////////////////////////////////////////////////
+
     // Retrieve the first trajectory point
     trajectory_point p = planner.compute_trajectory(t);
 
     // Gains
-    double Kp = 50, Kd = sqrt(Kp);
+    double Kp = 100, Kd = sqrt(Kp);
 
     // Retrieve initial simulation time
     ros::Time begin = ros::Time::now();
@@ -165,13 +242,13 @@ int main(int argc, char **argv)
     KDL::Frame des_pose = KDL::Frame::Identity(); KDL::Twist des_cart_vel = KDL::Twist::Zero(), des_cart_acc = KDL::Twist::Zero();
     des_pose.M = robot.getEEFrame().M;
 
-    while ((ros::Time::now()-begin).toSec() < 2*traj_duration + init_time_slot)
+    while ((ros::Time::now()-begin).toSec() < 2*traj_duration + init_time_slot) // ?
     {
         if (robot_state_available)
         {
             // Update robot
             robot.update(jnt_pos, jnt_vel);
-
+            
             // Update time
             t = (ros::Time::now()-begin).toSec();
             std::cout << "time: " << t << std::endl;
@@ -207,21 +284,26 @@ int main(int argc, char **argv)
             // std::cout << "tau: " << std::endl << tau.transpose() << std::endl;
             // std::cout << "desired_pose: " << std::endl << des_pose << std::endl;
             // std::cout << "current_pose: " << std::endl << robot.getEEFrame() << std::endl;
+            // std::cout << "init_position:\n" << init_position << std::endl << std::endl;
+            // std::cout << "end_position:\n" << init_position << std::endl << std::endl;
+            // std::cout << "desired_position: " << std::endl << toEigen(des_pose.p) << std::endl << std::endl;
+            // std::cout << "current_position:\n" << toEigen(robot.getEEFrame().p) << std::endl << std::endl;
 
             // inverse kinematics
             qd.data << jnt_pos[0], jnt_pos[1], jnt_pos[2], jnt_pos[3], jnt_pos[4], jnt_pos[5], jnt_pos[6];
-            qd = robot.getInvKin(qd, des_pose);
+            // qd = robot.getInvKin(qd, des_pose);
 
-            //robot.getInverseKinematics(des_pose, des_cart_vel, des_cart_acc,qd,dqd,ddqd);
+            KDL::Frame flangePose = des_pose*(robot.getFlangeEE().Inverse());
+            robot.getInverseKinematics(flangePose, des_cart_vel, des_cart_acc,qd,dqd,ddqd);
+            // robot.getInverseKinematics doesn't know about the added EE -> tricking it into thinking the robot ends with the flange
 
             // joint space inverse dynamics control
-            tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd);
-
-            // double Kp = 1000;
-            // double Ko = 1000;
-            // // Cartesian space inverse dynamics control
+            tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
+            double Kp = 400;
+            double Ko = 400;
+            // Cartesian space inverse dynamics control
             // tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
-            //                          Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko));
+            //                          Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
 
             // Set torques
             tau1_msg.data = tau[0];
@@ -231,6 +313,7 @@ int main(int argc, char **argv)
             tau5_msg.data = tau[4];
             tau6_msg.data = tau[5];
             tau7_msg.data = tau[6];
+            error_msg.data = error;
 
             // Publish
             joint1_effort_pub.publish(tau1_msg);
@@ -240,6 +323,7 @@ int main(int argc, char **argv)
             joint5_effort_pub.publish(tau5_msg);
             joint6_effort_pub.publish(tau6_msg);
             joint7_effort_pub.publish(tau7_msg);
+            error_pub.publish(error_msg);
 
             ros::spinOnce();
             loop_rate.sleep();

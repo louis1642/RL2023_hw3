@@ -58,8 +58,7 @@ void KDLRobot::update(std::vector<double> _jnt_values, std::vector<double> _jnt_
     fkVelSol_->JntToCart(jntVel, s_Fv_f);
     s_T_f = s_Fv_f.GetTwist();
     s_F_f = s_Fv_f.GetFrame();
-    int err = fkSol_->JntToCart(jntArray_,s_F_f);
-    err = jacSol_->JntToJac(jntArray_, s_J_f);
+    int err = jacSol_->JntToJac(jntArray_, s_J_f);
     err = jntJacDotSol_->JntToJacDot(jntVel, s_J_dot_q_dot_f);
     err = jntJacDotSol_->JntToJacDot(jntVel, s_J_dot_f);
 
@@ -179,6 +178,36 @@ KDL::JntArray KDLRobot::getInvKin(const KDL::JntArray &q,
     }
     return jntArray_out_;
 }
+
+void KDLRobot::getInverseKinematics(KDL::Frame &f,
+                              KDL::Twist &twist,
+                              KDL::Twist &acc,
+                              KDL::JntArray &q,
+                              KDL::JntArray &dq,
+                              KDL::JntArray &ddq)
+{
+    q = getInvKin(q,f);
+    ikVelSol_->CartToJnt(q,twist,dq);
+
+    Eigen::Matrix<double,6,7> J = toEigen(getEEJacobian());
+    Eigen::VectorXd x_ddot = toEigen(acc); 
+    Eigen::VectorXd Jdot_qdot = getEEJacDotqDot();
+    Eigen::Matrix<double,7,6> Jpinv = pseudoinverse(J);
+
+    ddq.data = Jpinv*(x_ddot - Jdot_qdot);
+}
+
+Eigen::VectorXd KDLRobot::getFriction()
+{
+    double damping = 0.5;
+    Eigen::MatrixXd F = damping*Eigen::MatrixXd::Identity(7,7);
+
+    Eigen::VectorXd friction;
+    friction.resize(chain_.getNrOfJoints());
+    friction = F*getJntVelocities();
+    std::cout << "friction: "<< friction << std::endl;
+    return friction;
+}
 ////////////////////////////////////////////////////////////////////////////////
 //                              END-EFFECTOR                                  //
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +246,7 @@ KDL::Jacobian KDLRobot::getEEBodyJacobian()
 
 Eigen::VectorXd KDLRobot::getEEJacDotqDot()
 {
-    return s_J_dot_ee_.data;
+    return s_J_dot_ee_.data*jntVel_.data;
 }
 
 void KDLRobot::addEE(const KDL::Frame &_f_F_ee)
