@@ -147,6 +147,12 @@ int main(int argc, char **argv)
 
     // CHOOSE THE DESIRED TRAJECTORY
     int trajFlag;
+    int controllerFlag;
+    std::cout << "Choose desired controller:" << std::endl
+                << "1. joint space inverse dynamics\n" << "2. operational space inverse dynamics\n";
+    std::cout << "Insert number: ";
+    std::cin >> controllerFlag;
+
     std::cout << "Choose desired trajectory:" << std::endl
                 << "1. linear (trapezoidal profile)\n" << "2. linear (cubic profile)\n" << 
                 "3. circular (trapezoidal profile)\n" << "4. circular (cubic profile)\n";
@@ -305,11 +311,21 @@ int main(int argc, char **argv)
 
             // joint space inverse dynamics control
             // tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
-            double Kp = 400;
+            // double Kp = 400;
+            // double Ko = 400;
+            // // Cartesian space inverse dynamics control
+            // tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
+            //                          Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
+
+            if (controllerFlag == 1) {
+                tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
+            }
+            else {
+                double Kp = 400;
             double Ko = 400;
-            // Cartesian space inverse dynamics control
-            tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
+                tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
                                      Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
+            }
 
             // Set torques
             tau1_msg.data = tau[0];
