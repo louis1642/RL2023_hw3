@@ -98,6 +98,7 @@ int main(int argc, char **argv)
     ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);
     // publisher to plot s
     ros::Publisher s_pub = n.advertise<kdl_ros_control::vector3f>("/iiwa/s", 1);
+    ros::Publisher err_pub = n.advertise<std_msgs::Float64>("/iiwa/error", 1);
 
     // Services
     ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>("/gazebo/set_model_configuration");
@@ -117,7 +118,7 @@ int main(int argc, char **argv)
     KDLRobot robot = createRobot(argv[1]);
 
     // Messages
-    std_msgs::Float64 dq1_msg, dq2_msg, dq3_msg, dq4_msg, dq5_msg, dq6_msg, dq7_msg;
+    std_msgs::Float64 dq1_msg, dq2_msg, dq3_msg, dq4_msg, dq5_msg, dq6_msg, dq7_msg, err_msg;
     std_srvs::Empty pauseSrv;
 
     // Joints
@@ -232,6 +233,7 @@ int main(int argc, char **argv)
             //   Eigen::Matrix<double, 6, 1> x_tilde;
             //   x_tilde << e_p, e_o_w[0], e_o[1], e_o[2];
            Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
+           err_msg.data = x_tilde.norm();
 
               // resolved velocity control low
               Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
@@ -254,6 +256,7 @@ int main(int argc, char **argv)
 
                 Eigen::MatrixXd Null_projector = Eigen::Matrix<double,7,7>::Identity() - (LJ_pinv * (L * J_cam.data));
                 Eigen::Vector3d sd; sd << 0, 0, 1;
+                // Eigen::Matrix<double,7,1> q0_dot; q0_dot << 0,0,0,0.1,0.1,0.1,0.1;
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
 
@@ -305,6 +308,7 @@ int main(int argc, char **argv)
         joint7_dq_pub.publish(dq7_msg);
 
         s_pub.publish(s_msg);
+        err_pub.publish(err_msg);
 
         ros::spinOnce();
         loop_rate.sleep();
