@@ -99,7 +99,7 @@ public:
     // the size of the circle corresponds to the size of blob
 
     cv::Mat im_with_keypoints;
-    cv::drawKeypoints( im, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+    cv::drawKeypoints( cv_ptr->image, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
 
 
     // Update GUI Window
