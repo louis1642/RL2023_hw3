@@ -15,7 +15,7 @@
 
 #include "kdl_ros_control/vector3f.h"
 
-#define USING_CONTROLLER_2B 0
+#define USING_CONTROLLER_2B 1
 
 // Global variables
 std::vector<double> jnt_pos(7,0.0), init_jnt_pos(7,0.0), jnt_vel(7,0.0), aruco_pose(7,0.0);
@@ -259,6 +259,48 @@ int main(int argc, char **argv)
                 // Eigen::Matrix<double,7,1> q0_dot; q0_dot << 0,0,0,0.1,0.1,0.1,0.1;
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
+
+                // PAPER IMPLEMENTATION OF NULL SPACE PROJECTOR
+                Eigen::Matrix<double,6,1> n1,n2,n3,n4;
+                Eigen::Vector3d ex, ey, s;
+                s = aruco_pos_n;
+                double d = cam_T_object.p.Norm();
+                Eigen::Matrix<double,3,3> Ps = Eigen::Matrix<double,3,3>::Identity() -
+                        (s * s.transpose());
+                ex << 1,0,0;
+                ey << 0,1,0;
+
+                n1.topRows(3) = s;
+                n1.bottomRows(3) = Eigen::Vector3d::Zero();
+
+                n2.topRows(3) = Eigen::Vector3d::Zero();
+                n2.bottomRows(3) = s;
+
+                n3.topRows(3) = -skew(s)*ey;
+                n3.bottomRows(3) = -Ps*ey;
+
+                n4.topRows(3) = skew(s)*ex;
+                n4.bottomRows(3) = Ps*ex;
+
+
+                double lambda1, lambda2, lambda3, lambda4; 
+                lambda1 = 0;
+                lambda2 = 0;
+                lambda3 = 0*std::sin(t);
+                lambda4 = 0*std::sin(t);
+                Eigen::Vector4d lambda; lambda << lambda1, lambda2, lambda3, lambda4;
+                Eigen::Matrix<double,6,4> N;
+                N.col(0) = n1;
+                N.col(1) = n2;
+                N.col(2) = n3;
+                N.col(3) = n4;
+
+        
+
+                Eigen::MatrixXd J_dagger = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
+                dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda;
+
+
 
                 s_msg.x.data = aruco_pos_n(0, 0);
                 s_msg.y.data = aruco_pos_n(1, 0);
