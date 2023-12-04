@@ -35,13 +35,6 @@
         </material>
         <transparency>0</transparency>
         <cast_shadows>1</cast_shadows>
-        <!--        <material>-->
-        <!--          <script>-->
-        <!--            <uri>model://aruco_marker/materials/scripts</uri>-->
-        <!--            <uri>model://aruco_marker/materials/textures</uri>-->
-        <!--            <name>Marker</name>-->
-        <!--          </script>-->
-        <!--        </material>-->
       </visual>
       <collision name="collision">
         <pose>0 0 0 0 0 0</pose>
