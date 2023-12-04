@@ -8,7 +8,7 @@
 
 [teleop_old.webm](https://github.com/louis1642/RL2023_hw3/assets/62564969/fa9a9dd6-7da2-440e-b97e-91be18ceb6eb)
 
-## Improved Look-At-Point (moving in the Null Space)
+## Improved Look-At-Point (with pseudo-velocities command)
 
 [teleop.webm](https://github.com/louis1642/RL2023_hw3/assets/62564969/ae85e159-9d49-4ffd-a2fd-7c1f1e34de5b)
 
