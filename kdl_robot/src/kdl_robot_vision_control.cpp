@@ -260,48 +260,39 @@ int main(int argc, char **argv)
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
 
+
+
+
                 // PAPER IMPLEMENTATION OF NULL SPACE PROJECTOR
                 Eigen::Matrix<double,6,1> n1,n2,n3,n4;
                 Eigen::Vector3d ex, ey, s;
                 s = aruco_pos_n;
-                double d = cam_T_object.p.Norm();
-                Eigen::Matrix<double,3,3> Ps = Eigen::Matrix<double,3,3>::Identity() -
-                        (s * s.transpose());
                 ex << 1,0,0;
                 ey << 0,1,0;
-
-                n1.topRows(3) = s;
-                n1.bottomRows(3) = Eigen::Vector3d::Zero();
-
-                n2.topRows(3) = Eigen::Vector3d::Zero();
-                n2.bottomRows(3) = s;
-
-                n3.topRows(3) = -skew(s)*ey;
-                n3.bottomRows(3) = -Ps*ey;
-
-                n4.topRows(3) = skew(s)*ex;
-                n4.bottomRows(3) = Ps*ex;
-
-
-                double lambda1, lambda2, lambda3, lambda4, roll, pitch, yaw; 
-                robot.getEEFrame().M.GetRPY(roll,pitch,yaw);
-                std::cout << "\nroll: " << roll << "\n\n";
-                lambda1 = 0*0.1*std::sin(t);
-                lambda2 = 0*0.1*std::sin(t);
-                lambda3 = 0*0.1*std::sin(t);
-                lambda4 = 1*0.1*std::sin(t);
-                Eigen::Vector4d lambda; lambda << lambda1, lambda2, lambda3, lambda4;
+                double d = cam_T_object.p.Norm();
+                Eigen::Matrix<double,3,3> Ps = 
+                        Eigen::Matrix<double,3,3>::Identity() - (s * s.transpose());
+                
                 Eigen::Matrix<double,6,4> N;
-                N.col(0) = n1;
-                N.col(1) = n2;
-                N.col(2) = n3;
-                N.col(3) = n4;
+                N.col(0).topRows(3) = s;
+                N.col(0).bottomRows(3) = Eigen::Vector3d::Zero();
+                N.col(1).topRows(3) = Eigen::Vector3d::Zero();
+                N.col(1).bottomRows(3) = s;
+                N.col(2).topRows(3) = -skew(s)*ey;
+                N.col(2).bottomRows(3) = -Ps*ey;
+                N.col(3).topRows(3) = skew(s)*ex;
+                N.col(3).bottomRows(3) = Ps*ex;
 
-        
+                Eigen::Vector4d lambda;
+                lambda[1] = 0*0.1*std::sin(t);
+                lambda[2] = 0*0.1*std::sin(t);
+                lambda[3] = 0*0.1*std::sin(t);
+                lambda[4] = 1*0.1*std::sin(t);
 
-                Eigen::MatrixXd J_dagger = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
-                // dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda + 0.5*Null_projector * (qdi - toEigen(jnt_pos));
-
+                Eigen::MatrixXd J_dagger = 
+                        J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
+                dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda + 
+                        0.5*Null_projector * (qdi - toEigen(jnt_pos));
 
                 s_msg.x = aruco_pos_n(0, 0);
                 s_msg.y = aruco_pos_n(1, 0);
