@@ -9,7 +9,7 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 
 find_package(orocos_kdl REQUIRED)
-find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs geometry_msgs genmsg eigen_conversions kdl_parser orocos_kdl urdf message_generation)
+find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs geometry_msgs genmsg eigen_conversions kdl_parser orocos_kdl urdf) # message_generation
 find_package(Eigen3 REQUIRED)
 
 LINK_DIRECTORIES("lib/")
@@ -48,12 +48,12 @@ LINK_DIRECTORIES("lib/")
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- add_message_files(
-   FILES
-   vector3f.msg
+# add_message_files(
+#   FILES
+#   vector3f.msg
 #   Message1.msg
 #   Message2.msg
- )
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -70,10 +70,10 @@ LINK_DIRECTORIES("lib/")
 # )
 
 ## Generate added messages and services with any dependencies listed here
- generate_messages(
-   DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
- )
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,7 +107,7 @@ LINK_DIRECTORIES("lib/")
 catkin_package(
    INCLUDE_DIRS include
    LIBRARIES kdl_ros_control
-   CATKIN_DEPENDS roscpp std_msgs message_runtime
+#   CATKIN_DEPENDS roscpp std_msgs message_runtime
 #  CATKIN_DEPENDS eigen_conversions
 #  DEPENDS system_lib
 )

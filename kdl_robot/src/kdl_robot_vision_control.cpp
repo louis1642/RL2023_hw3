@@ -13,7 +13,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "gazebo_msgs/SetModelConfiguration.h"
 
-#include "kdl_ros_control/vector3f.h"
+#include "geometry_msgs/Vector3.h"
 
 #define USING_CONTROLLER_2B 1
 
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
     ros::Publisher joint6_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J6_controller/command", 1);
     ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);
     // publisher to plot s
-    ros::Publisher s_pub = n.advertise<kdl_ros_control::vector3f>("/iiwa/s", 1);
+    ros::Publisher s_pub = n.advertise<geometry_msgs::Vector3>("/iiwa/s", 1);
     ros::Publisher err_pub = n.advertise<std_msgs::Float64>("/iiwa/error", 1);
 
     // Services
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     KDL::Frame Fi = robot.getEEFrame();
     Eigen::Vector3d pdi = toEigen(Fi.p);
 
-  kdl_ros_control::vector3f s_msg;
+  geometry_msgs::Vector3 s_msg;
 
   while (ros::ok())
     {
@@ -301,10 +301,9 @@ int main(int argc, char **argv)
                 dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda;
 
 
-
-                s_msg.x.data = aruco_pos_n(0, 0);
-                s_msg.y.data = aruco_pos_n(1, 0);
-                s_msg.z.data = aruco_pos_n(2, 0);
+                s_msg.x = aruco_pos_n(0, 0);
+                s_msg.y = aruco_pos_n(1, 0);
+                s_msg.z = aruco_pos_n(2, 0);
             }
             // debug
             // std::cout << "x_tilde: " << std::endl << x_tilde << std::endl;
