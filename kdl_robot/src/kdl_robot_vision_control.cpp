@@ -283,11 +283,13 @@ int main(int argc, char **argv)
                 n4.bottomRows(3) = Ps*ex;
 
 
-                double lambda1, lambda2, lambda3, lambda4; 
-                lambda1 = 0;
-                lambda2 = 0;
-                lambda3 = 0*std::sin(t);
-                lambda4 = 0*std::sin(t);
+                double lambda1, lambda2, lambda3, lambda4, roll, pitch, yaw; 
+                robot.getEEFrame().M.GetRPY(roll,pitch,yaw);
+                std::cout << "\nroll: " << roll << "\n\n";
+                lambda1 = 0*0.1*std::sin(t);
+                lambda2 = 0*0.1*std::sin(t);
+                lambda3 = 0*0.1*std::sin(t);
+                lambda4 = 1*0.1*std::sin(t);
                 Eigen::Vector4d lambda; lambda << lambda1, lambda2, lambda3, lambda4;
                 Eigen::Matrix<double,6,4> N;
                 N.col(0) = n1;
@@ -298,7 +300,7 @@ int main(int argc, char **argv)
         
 
                 Eigen::MatrixXd J_dagger = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
-                dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda;
+                // dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda + 0.5*Null_projector * (qdi - toEigen(jnt_pos));
 
 
                 s_msg.x = aruco_pos_n(0, 0);
