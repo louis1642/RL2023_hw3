@@ -1,4 +1,5 @@
 # Videos
+(If any of the video does not load, right click > open in new tab should fix the issue)
 
 ## Tracking
 
