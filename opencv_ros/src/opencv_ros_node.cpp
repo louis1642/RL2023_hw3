@@ -27,20 +27,17 @@ public:
     cv::namedWindow(OPENCV_WINDOW);
   }
 
-  ~ImageConverter()
-  {
+  // Destructor
+  ~ImageConverter() {
     cv::destroyWindow(OPENCV_WINDOW);
   }
 
-  void imageCb(const sensor_msgs::ImageConstPtr& msg)
-  {
+  // callback function for the video feed subscriber
+  void imageCb(const sensor_msgs::ImageConstPtr& msg) {
     cv_bridge::CvImagePtr cv_ptr;
-    try
-    {
+    try {
       cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-    }
-    catch (cv_bridge::Exception& e)
-    {
+    } catch (cv_bridge::Exception& e) {
       ROS_ERROR("cv_bridge exception: %s", e.what());
       return;
     }
@@ -112,8 +109,7 @@ public:
   }
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   ros::init(argc, argv, "image_converter");
   ImageConverter ic;
   ros::spin();
