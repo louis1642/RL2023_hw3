@@ -97,6 +97,7 @@ int main(int argc, char **argv) {
                                                                   1);
     // publisher to plot s
     ros::Publisher s_pub = n.advertise<geometry_msgs::Vector3>("/iiwa/s", 1);
+    // publisher to plot the error
     ros::Publisher err_pub = n.advertise<std_msgs::Float64>("/iiwa/error", 1);
 
     // Services
@@ -203,7 +204,7 @@ int main(int argc, char **argv) {
             KDL::Frame base_T_object = robot.getEEFrame() * cam_T_object;
 
             // compute offset transformation
-            // KDL::Rotation R_off(1,0,0,0,-1,0,0,0,0);
+            // KDL::Rotation R_off(1,0,0,0,-1,0,0,0,-1);
             KDL::Rotation R_off = KDL::Rotation::RotX(3.14);
             KDL::Vector P_off(0, 0, 0.3);
             KDL::Frame T_offset(R_off, P_off);
@@ -219,8 +220,7 @@ int main(int argc, char **argv) {
             // KDL::Rotation Re = KDL::Rotation::Rot(KDL::Vector(r_o[0], r_o[1], r_o[2]), aruco_angle);
 
             if (!USING_CONTROLLER_2B) {
-
-
+                // using the controller required by point 2.a
                 //   Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
                 //                                                             toEigen(robot.getEEFrame().M));
                 //   Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
@@ -261,8 +261,6 @@ int main(int argc, char **argv) {
                 // Eigen::Matrix<double,7,1> q0_dot; q0_dot << 0,0,0,0.1,0.1,0.1,0.1;
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
-
-
 
 
                 // PAPER IMPLEMENTATION OF NULL SPACE PROJECTOR
