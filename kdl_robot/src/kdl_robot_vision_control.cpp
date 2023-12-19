@@ -320,6 +320,7 @@ int main(int argc, char **argv) {
             // std::cout << "euler angles:" <<std::endl << euler <<std::endl <<std::endl;
             // std::cout << "desired rotaion:" <<std::endl << R_off <<std::endl <<std::endl;
         } else {
+            // if either the robot state or the aruco state are not available, go back to the initial pos
             dqd.data = KP * (toEigen(init_jnt_pos) - toEigen(jnt_pos));
         }
         // Set joints
