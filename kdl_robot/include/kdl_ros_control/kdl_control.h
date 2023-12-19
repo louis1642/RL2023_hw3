@@ -5,8 +5,7 @@
 #include "kdl_robot.h"
 #include "utils.h"
 
-class KDLController
-{
+class KDLController {
 
 public:
 
@@ -30,7 +29,7 @@ public:
 
 private:
 
-    KDLRobot* robot_;
+    KDLRobot *robot_;
 
 };
 

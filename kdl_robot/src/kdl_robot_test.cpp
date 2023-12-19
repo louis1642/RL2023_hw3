@@ -47,7 +47,6 @@ KDLPlanner
 chooseTrajectory(int trajFlag, Eigen::Vector3d init_position, Eigen::Vector3d end_position, double traj_duration,
                  double acc_duration,
                  double t, double init_time_slot, double traj_radius) {
-    // CHECK WHY IT DOESN'T WORK
     switch (trajFlag) {
         case 1:
             return KDLPlanner(traj_duration, acc_duration, init_position, end_position);
@@ -139,10 +138,11 @@ int main(int argc, char **argv) {
     robot_init_config.request.joint_positions.push_back(1.57);
     robot_init_config.request.joint_positions.push_back(-1.57);
     robot_init_config.request.joint_positions.push_back(+1.57);
-    if (robot_set_state_srv.call(robot_init_config))
+    if (robot_set_state_srv.call(robot_init_config)) {
         ROS_INFO("Robot state set.");
-    else
+    } else {
         ROS_INFO("Failed to set robot state.");
+    }
 
     // Messages
     std_msgs::Float64 tau1_msg, tau2_msg, tau3_msg, tau4_msg, tau5_msg, tau6_msg, tau7_msg, error_msg;
@@ -215,24 +215,9 @@ int main(int argc, char **argv) {
     // Plan trajectory    
     double traj_duration = 10, acc_duration = 0.5, t = 0.0, init_time_slot = 1.0, traj_radius = 0.1;
 
-    /////////////////// TESTING /////////////////////////////////////////////////////////
-
+    // prompt the user to choose the trajectory and return the appropriate planner
     KDLPlanner planner = chooseTrajectory(trajFlag, init_position, end_position, traj_duration, acc_duration,
                                           t, init_time_slot, traj_radius);
-
-    // THIS IS NOT NECESSARY ANYMORE
-    // uncomment this for linear trajectory with trapezoidal profile
-    // KDLPlanner planner(traj_duration, acc_duration, init_position, end_position);
-
-    // uncomment this for linear trajectory with cubic profile
-    // KDLPlanner planner(traj_duration, init_position, end_position);
-
-    // uncomment this for circle trajectory with trapezoidal profile
-    // KDLPlanner planner(traj_duration, acc_duration, init_position, traj_radius);
-
-    // uncomment this for circle trajectory with cubic profile
-    // KDLPlanner planner(traj_duration, init_position, traj_radius);
-    /////////////////////////////////////////////////////////////////////////////////////
 
     // Retrieve the first trajectory point
     trajectory_point p = planner.compute_trajectory(t);
@@ -249,8 +234,7 @@ int main(int argc, char **argv) {
     KDL::Twist des_cart_vel = KDL::Twist::Zero(), des_cart_acc = KDL::Twist::Zero();
     des_pose.M = robot.getEEFrame().M;
 
-    while ((ros::Time::now() - begin).toSec() < 2 * traj_duration + init_time_slot) // ?
-    {
+    while ((ros::Time::now() - begin).toSec() < 2 * traj_duration + init_time_slot) {
         if (robot_state_available) {
             // Update robot
             robot.update(jnt_pos, jnt_vel);
@@ -262,8 +246,8 @@ int main(int argc, char **argv) {
             // Extract desired pose
             des_cart_vel = KDL::Twist::Zero();
             des_cart_acc = KDL::Twist::Zero();
-            if (t <= init_time_slot) // wait a second
-            {
+            if (t <= init_time_slot) {
+                // wait a second
                 p = planner.compute_trajectory(0.0);
             } else if (t > init_time_slot && t <= traj_duration + init_time_slot) {
                 p = planner.compute_trajectory(t - init_time_slot);
@@ -319,8 +303,10 @@ int main(int argc, char **argv) {
             //                          Kp, Ko, 2*sqrt(Kp), 2*sqrt(Ko),error);
 
             if (controllerFlag == 1) {
+                // joint space
                 tau = controller_.idCntr(qd, dqd, ddqd, Kp, Kd, error);
             } else {
+                // operational space
                 double Kp = 400;
                 double Ko = 400;
                 tau = controller_.idCntr(des_pose, des_cart_vel, des_cart_acc,
@@ -335,6 +321,7 @@ int main(int argc, char **argv) {
             tau5_msg.data = tau[4];
             tau6_msg.data = tau[5];
             tau7_msg.data = tau[6];
+
             error_msg.data = error;
 
             // Publish
@@ -351,10 +338,10 @@ int main(int argc, char **argv) {
             loop_rate.sleep();
         }
     }
-    if (pauseGazebo.call(pauseSrv))
+    if (pauseGazebo.call(pauseSrv)) {
         ROS_INFO("Simulation paused.");
-    else
+    } else {
         ROS_INFO("Failed to pause simulation.");
-
+    }
     return 0;
 }
