@@ -15,47 +15,41 @@
 
 #include "geometry_msgs/Vector3.h"
 
-#define USING_CONTROLLER_2B 1
+#define USING_CONTROLLER_2B 0
 
 // Global variables
-std::vector<double> jnt_pos(7,0.0), init_jnt_pos(7,0.0), jnt_vel(7,0.0), aruco_pose(7,0.0);
+std::vector<double> jnt_pos(7, 0.0), init_jnt_pos(7, 0.0), jnt_vel(7, 0.0), aruco_pose(7, 0.0);
 bool robot_state_available = false, aruco_pose_available = false;
-double lambda = 10*0.2;
+double lambda = 10 * 0.2;
 double KP = 15;
 
 // Functions
-KDLRobot createRobot(std::string robot_string)
-{
+KDLRobot createRobot(std::string robot_string) {
     KDL::Tree robot_tree;
     urdf::Model my_model;
-    if (!my_model.initFile(robot_string))
-    {
+    if (!my_model.initFile(robot_string)) {
         printf("Failed to parse urdf robot model \n");
     }
-    if (!kdl_parser::treeFromUrdfModel(my_model, robot_tree))
-    {
+    if (!kdl_parser::treeFromUrdfModel(my_model, robot_tree)) {
         printf("Failed to construct kdl tree \n");
     }
-    
+
     KDLRobot robot(robot_tree);
     return robot;
 }
 
-void jointStateCallback(const sensor_msgs::JointState & msg)
-{
+void jointStateCallback(const sensor_msgs::JointState &msg) {
     robot_state_available = true;
     // Update joints
     jnt_pos.clear();
     jnt_vel.clear();
-    for (int i = 0; i < msg.position.size(); i++)
-    {
+    for (int i = 0; i < msg.position.size(); i++) {
         jnt_pos.push_back(msg.position[i]);
         jnt_vel.push_back(msg.velocity[i]);
     }
 }
 
-void arucoPoseCallback(const geometry_msgs::PoseStamped & msg)
-{
+void arucoPoseCallback(const geometry_msgs::PoseStamped &msg) {
     aruco_pose_available = true;
     aruco_pose.clear();
     aruco_pose.push_back(msg.pose.position.x);
@@ -69,10 +63,8 @@ void arucoPoseCallback(const geometry_msgs::PoseStamped & msg)
 
 
 // Main
-int main(int argc, char **argv)
-{
-    if (argc < 2)
-    {
+int main(int argc, char **argv) {
+    if (argc < 2) {
         printf("Please, provide a path to a URDF file...\n");
         return 0;
     }
@@ -89,19 +81,27 @@ int main(int argc, char **argv)
     ros::Subscriber joint_state_sub = n.subscribe("/iiwa/joint_states", 1, jointStateCallback);
 
     // Publishers
-    ros::Publisher joint1_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J1_controller/command", 1);
-    ros::Publisher joint2_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J2_controller/command", 1);
-    ros::Publisher joint3_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J3_controller/command", 1);
-    ros::Publisher joint4_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J4_controller/command", 1);
-    ros::Publisher joint5_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J5_controller/command", 1);
-    ros::Publisher joint6_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J6_controller/command", 1);
-    ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command", 1);
+    ros::Publisher joint1_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J1_controller/command",
+                                                                  1);
+    ros::Publisher joint2_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J2_controller/command",
+                                                                  1);
+    ros::Publisher joint3_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J3_controller/command",
+                                                                  1);
+    ros::Publisher joint4_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J4_controller/command",
+                                                                  1);
+    ros::Publisher joint5_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J5_controller/command",
+                                                                  1);
+    ros::Publisher joint6_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J6_controller/command",
+                                                                  1);
+    ros::Publisher joint7_dq_pub = n.advertise<std_msgs::Float64>("/iiwa/VelocityJointInterface_J7_controller/command",
+                                                                  1);
     // publisher to plot s
     ros::Publisher s_pub = n.advertise<geometry_msgs::Vector3>("/iiwa/s", 1);
     ros::Publisher err_pub = n.advertise<std_msgs::Float64>("/iiwa/error", 1);
 
     // Services
-    ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>("/gazebo/set_model_configuration");
+    ros::ServiceClient robot_set_state_srv = n.serviceClient<gazebo_msgs::SetModelConfiguration>(
+            "/gazebo/set_model_configuration");
     ros::ServiceClient pauseGazebo = n.serviceClient<std_srvs::Empty>("/gazebo/pause_physics");
 
     // Initial desired robot state
@@ -128,21 +128,19 @@ int main(int argc, char **argv)
     ddqd.data.setZero();
 
     // Wait for robot and object state
-    while (!(robot_state_available))
-    {
+    while (!(robot_state_available)) {
         ROS_INFO_STREAM_ONCE("Robot/object state not available yet.");
         ROS_INFO_STREAM_ONCE("Please start gazebo simulation.");
-        
+
         ros::spinOnce();
         loop_rate.sleep();
     }
-    
+
     // Bring robot in a desired initial configuration with velocity control
     ROS_INFO("Robot going into initial configuration....");
-    double jnt_position_error_norm = computeJointErrorNorm(toEigen(init_jnt_pos),toEigen(jnt_pos));
-    while (jnt_position_error_norm > 0.01)
-    {
-        dqd.data = KP*(toEigen(init_jnt_pos) - toEigen(jnt_pos));
+    double jnt_position_error_norm = computeJointErrorNorm(toEigen(init_jnt_pos), toEigen(jnt_pos));
+    while (jnt_position_error_norm > 0.01) {
+        dqd.data = KP * (toEigen(init_jnt_pos) - toEigen(jnt_pos));
 
         // Set joints
         dq1_msg.data = dqd.data[0];
@@ -162,7 +160,7 @@ int main(int argc, char **argv)
         joint6_dq_pub.publish(dq6_msg);
         joint7_dq_pub.publish(dq7_msg);
 
-        jnt_position_error_norm = computeJointErrorNorm(toEigen(init_jnt_pos),toEigen(jnt_pos));
+        jnt_position_error_norm = computeJointErrorNorm(toEigen(init_jnt_pos), toEigen(jnt_pos));
         std::cout << "jnt_position_error_norm: " << jnt_position_error_norm << "\n" << std::endl;
         ros::spinOnce();
         loop_rate.sleep();
@@ -171,8 +169,8 @@ int main(int argc, char **argv)
 
     // Specify an end-effector: camera in flange transform
     KDL::Frame ee_T_cam;
-    ee_T_cam.M = KDL::Rotation::RotY(1.57)*KDL::Rotation::RotZ(-1.57);
-    ee_T_cam.p = KDL::Vector(0,0,0.025);
+    ee_T_cam.M = KDL::Rotation::RotY(1.57) * KDL::Rotation::RotZ(-1.57);
+    ee_T_cam.p = KDL::Vector(0, 0, 0.025);
     robot.addEE(ee_T_cam);
 
     // Update robot
@@ -186,34 +184,35 @@ int main(int argc, char **argv)
     KDL::Frame Fi = robot.getEEFrame();
     Eigen::Vector3d pdi = toEigen(Fi.p);
 
-  geometry_msgs::Vector3 s_msg;
+    geometry_msgs::Vector3 s_msg;
 
-  while (ros::ok())
-    {
-        if (robot_state_available && aruco_pose_available)
-        {
+    while (ros::ok()) {
+        if (robot_state_available && aruco_pose_available) {
             // Update robot
             robot.update(jnt_pos, jnt_vel);
-        
+
             // Update time
-            double t = (ros::Time::now()-begin).toSec();
+            double t = (ros::Time::now() - begin).toSec();
             std::cout << "time: " << t << std::endl;
 
             // compute current jacobians
             KDL::Jacobian J_cam = robot.getEEJacobian();
-            KDL::Frame cam_T_object(KDL::Rotation::Quaternion(aruco_pose[3], aruco_pose[4], aruco_pose[5], aruco_pose[6]), KDL::Vector(aruco_pose[0], aruco_pose[1], aruco_pose[2]));
-            KDL::Frame base_T_object = robot.getEEFrame()*cam_T_object;
-            
+            KDL::Frame cam_T_object(
+                    KDL::Rotation::Quaternion(aruco_pose[3], aruco_pose[4], aruco_pose[5], aruco_pose[6]),
+                    KDL::Vector(aruco_pose[0], aruco_pose[1], aruco_pose[2]));
+            KDL::Frame base_T_object = robot.getEEFrame() * cam_T_object;
+
             // compute offset transformation
             // KDL::Rotation R_off(1,0,0,0,-1,0,0,0,0);
             KDL::Rotation R_off = KDL::Rotation::RotX(3.14);
-            KDL::Vector P_off(0,0,0.3);
-            KDL::Frame T_offset(R_off,P_off);
-            KDL::Frame T_desired = base_T_object*T_offset; 
-            
-            
+            KDL::Vector P_off(0, 0, 0.3);
+            KDL::Frame T_offset(R_off, P_off);
+            KDL::Frame T_desired = base_T_object * T_offset;
+
+
             // look at point: compute rotation error from angle/axis
-            Eigen::Matrix<double,3,1> aruco_pos_n = toEigen(cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
+            Eigen::Matrix<double, 3, 1> aruco_pos_n = toEigen(
+                    cam_T_object.p); //(aruco_pose[0],aruco_pose[1],aruco_pose[2]);
             aruco_pos_n.normalize();    // this is the unit vector describing position of marker wrt camera (s in the pdf)
             // Eigen::Vector3d r_o = skew(Eigen::Vector3d(0,0,1))*aruco_pos_n;
             // double aruco_angle = std::acos(Eigen::Vector3d(0,0,1).dot(aruco_pos_n));
@@ -221,41 +220,44 @@ int main(int argc, char **argv)
 
             if (!USING_CONTROLLER_2B) {
 
-            
-            //   Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
-            //                                                             toEigen(robot.getEEFrame().M));
-            //   Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
-              Eigen::Matrix<double, 3, 1> e_o_n = computeOrientationError(toEigen(T_desired.M),
-                                                                   toEigen(robot.getEEFrame().M));
-            //   Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
-                Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(T_desired.p),
-                                                                   toEigen(robot.getEEFrame().p));
-            //   Eigen::Matrix<double, 6, 1> x_tilde;
-            //   x_tilde << e_p, e_o_w[0], e_o[1], e_o[2];
-           Eigen::Matrix<double,6,1> x_tilde; x_tilde << e_p,  e_o_n;
-           err_msg.data = x_tilde.norm();
 
-              // resolved velocity control low
-              Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
-              dqd.data = 1.5 * J_pinv * x_tilde +
-                         10 * (Eigen::Matrix<double, 7, 7>::Identity() - J_pinv * J_cam.data) *
-                         (qdi - toEigen(jnt_pos));
+                //   Eigen::Matrix<double, 3, 1> e_o = computeOrientationError(toEigen(robot.getEEFrame().M * Re),
+                //                                                             toEigen(robot.getEEFrame().M));
+                //   Eigen::Matrix<double, 3, 1> e_o_w = computeOrientationError(toEigen(Fi.M), toEigen(robot.getEEFrame().M));
+                Eigen::Matrix<double, 3, 1> e_o_n = computeOrientationError(toEigen(T_desired.M),
+                                                                            toEigen(robot.getEEFrame().M));
+                //   Eigen::Matrix<double,3,1> e_p = computeLinearError(pdi,toEigen(robot.getEEFrame().p));
+                Eigen::Matrix<double, 3, 1> e_p = computeLinearError(toEigen(T_desired.p),
+                                                                     toEigen(robot.getEEFrame().p));
+                //   Eigen::Matrix<double, 6, 1> x_tilde;
+                //   x_tilde << e_p, e_o_w[0], e_o[1], e_o[2];
+                Eigen::Matrix<double, 6, 1> x_tilde;
+                x_tilde << e_p, e_o_n;
+                err_msg.data = x_tilde.norm();
+
+                // resolved velocity control low
+                Eigen::MatrixXd J_pinv = J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
+                dqd.data = 1.5 * J_pinv * x_tilde +
+                           10 * (Eigen::Matrix<double, 7, 7>::Identity() - J_pinv * J_cam.data) *
+                           (qdi - toEigen(jnt_pos));
             } else {
                 // Using the controller required by point 2.b
-                Eigen::Matrix<double,3,3> R_c = toEigen(robot.getEEFrame().M);
-                Eigen::Matrix<double,3,6> L;
+                Eigen::Matrix<double, 3, 3> R_c = toEigen(robot.getEEFrame().M);
+                Eigen::Matrix<double, 3, 6> L;
                 // L being a 3x6 matrix, it is defined by two 3x3 blocks
-                L.block(0,0,3,3) = (-1/cam_T_object.p.Norm()) * (Eigen::Matrix<double,3,3>::Identity() -
-                        (aruco_pos_n * aruco_pos_n.transpose())) * R_c.transpose();
-                L.block(0,3,3,3) = skew(aruco_pos_n) * R_c.transpose();
+                L.block(0, 0, 3, 3) = (-1 / cam_T_object.p.Norm()) * (Eigen::Matrix<double, 3, 3>::Identity() -
+                                                                      (aruco_pos_n * aruco_pos_n.transpose())) *
+                                      R_c.transpose();
+                L.block(0, 3, 3, 3) = skew(aruco_pos_n) * R_c.transpose();
                 // note: matrix R_c is transposed and then post-multiplied. R_c represents the rotation to go from base frame to camera frame.
                 //        Therefore, we need the transposed matrix to go from the camera to the base frame
 
                 Eigen::MatrixXd LJ_pinv = (L * J_cam.data).completeOrthogonalDecomposition().pseudoInverse();
                 // Eigen::MatrixXd LJ_pinv = weightedPseudoInverse(L,J_cam.data);
 
-                Eigen::MatrixXd Null_projector = Eigen::Matrix<double,7,7>::Identity() - (LJ_pinv * (L * J_cam.data));
-                Eigen::Vector3d sd; sd << 0, 0, 1;
+                Eigen::MatrixXd Null_projector = Eigen::Matrix<double, 7, 7>::Identity() - (LJ_pinv * (L * J_cam.data));
+                Eigen::Vector3d sd;
+                sd << 0, 0, 1;
                 // Eigen::Matrix<double,7,1> q0_dot; q0_dot << 0,0,0,0.1,0.1,0.1,0.1;
                 dqd.data = 2 * LJ_pinv * sd + Null_projector * (qdi - toEigen(jnt_pos));
                 // std::cout << "dqd: \n" << dqd.data << std::endl;
@@ -264,35 +266,35 @@ int main(int argc, char **argv)
 
 
                 // PAPER IMPLEMENTATION OF NULL SPACE PROJECTOR
-                Eigen::Matrix<double,6,1> n1,n2,n3,n4;
+                Eigen::Matrix<double, 6, 1> n1, n2, n3, n4;
                 Eigen::Vector3d ex, ey, s;
                 s = aruco_pos_n;
-                ex << 1,0,0;
-                ey << 0,1,0;
+                ex << 1, 0, 0;
+                ey << 0, 1, 0;
                 double d = cam_T_object.p.Norm();
-                Eigen::Matrix<double,3,3> Ps = 
-                        Eigen::Matrix<double,3,3>::Identity() - (s * s.transpose());
-                
-                Eigen::Matrix<double,6,4> N;
+                Eigen::Matrix<double, 3, 3> Ps =
+                        Eigen::Matrix<double, 3, 3>::Identity() - (s * s.transpose());
+
+                Eigen::Matrix<double, 6, 4> N;
                 N.col(0).topRows(3) = s;
                 N.col(0).bottomRows(3) = Eigen::Vector3d::Zero();
                 N.col(1).topRows(3) = Eigen::Vector3d::Zero();
                 N.col(1).bottomRows(3) = s;
-                N.col(2).topRows(3) = -skew(s)*ey;
-                N.col(2).bottomRows(3) = -Ps*ey;
-                N.col(3).topRows(3) = skew(s)*ex;
-                N.col(3).bottomRows(3) = Ps*ex;
+                N.col(2).topRows(3) = -skew(s) * ey;
+                N.col(2).bottomRows(3) = -Ps * ey;
+                N.col(3).topRows(3) = skew(s) * ex;
+                N.col(3).bottomRows(3) = Ps * ex;
 
                 Eigen::Vector4d lambda;
-                lambda[1] = 0*0.1*std::sin(t);
-                lambda[2] = 0*0.1*std::sin(t);
-                lambda[3] = 0*0.1*std::sin(t);
-                lambda[4] = 1*0.1*std::sin(t);
+                lambda[1] = 0 * 0.1 * std::sin(t);
+                lambda[2] = 0 * 0.1 * std::sin(t);
+                lambda[3] = 0 * 0.1 * std::sin(t);
+                lambda[4] = 1 * 0.1 * std::sin(t);
 
-                Eigen::MatrixXd J_dagger = 
+                Eigen::MatrixXd J_dagger =
                         J_cam.data.completeOrthogonalDecomposition().pseudoInverse();
-                dqd.data = 2 * LJ_pinv * sd + J_dagger*N*lambda + 
-                        0.5*Null_projector * (qdi - toEigen(jnt_pos));
+                dqd.data = 2 * LJ_pinv * sd + J_dagger * N * lambda +
+                           0.5 * Null_projector * (qdi - toEigen(jnt_pos));
 
                 s_msg.x = aruco_pos_n(0, 0);
                 s_msg.y = aruco_pos_n(1, 0);
@@ -319,9 +321,8 @@ int main(int argc, char **argv)
             // Eigen::Vector3d euler; euler << alpha,beta,gamma;
             // std::cout << "euler angles:" <<std::endl << euler <<std::endl <<std::endl;
             // std::cout << "desired rotaion:" <<std::endl << R_off <<std::endl <<std::endl;
-        }
-        else{
-            dqd.data = KP*(toEigen(init_jnt_pos) - toEigen(jnt_pos));
+        } else {
+            dqd.data = KP * (toEigen(init_jnt_pos) - toEigen(jnt_pos));
         }
         // Set joints
         dq1_msg.data = dqd.data[0];
